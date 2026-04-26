@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
 
-DB = "nesforvia.db"
+DB = "/tmp/nesforvia.db"
 
 ADMINS = {
     "max": os.environ.get("ADMIN_MAX_PASSWORD", "Biscuit123!"),

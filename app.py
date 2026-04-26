@@ -1,208 +1,271 @@
-from __future__ import annotations
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from pathlib import Path
-import sqlite3, os, datetime as dt
-
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "nesforvia.db"
-UPLOAD_DIR = BASE_DIR / "static" / "uploads" / "news"
-APP_UPLOAD_DIR = BASE_DIR / "static" / "uploads" / "applications"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-APP_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+import os
+import sqlite3
+from functools import wraps
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("NESFORVIA_SECRET", "CHANGE-THIS-SECRET-KEY")
+app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
 
-# CHANGE THESE BEFORE GOING PUBLIC.
+DB = "nesforvia.db"
+
 ADMINS = {
-    "max": {"name": "Emperor Max I", "password_hash": generate_password_hash(os.environ.get("MAX_ADMIN_PASSWORD", "Biscuit123!"))},
-    "doom": {"name": "Emperor Doom", "password_hash": generate_password_hash(os.environ.get("DOOM_ADMIN_PASSWORD", "Doom123!"))},
+    "max": os.environ.get("ADMIN_MAX_PASSWORD", "Biscuit123!"),
+    "doom": os.environ.get("ADMIN_DOOM_PASSWORD", "Doom123!")
 }
-PARTIES = ["Green Party", "Conservative Party", "Social Democratic Party"]
-ALLOWED_IMAGE_EXTS = {"png", "jpg", "jpeg", "webp", "gif"}
+
 
 def db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 def init_db():
-    with db() as con:
-        con.executescript('''
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS news (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            body TEXT NOT NULL,
-            image TEXT,
-            author TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS applications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,
-            full_name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            dob TEXT,
-            discord TEXT,
-            reason TEXT NOT NULL,
-            file_path TEXT,
-            status TEXT DEFAULT 'Pending',
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            voter_name TEXT NOT NULL,
-            voter_key TEXT NOT NULL UNIQUE,
-            party TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-        ''')
-        defaults = {
-            "notice": "Welcome to the official website of the Imperial Kingdoms of Nesforvia.",
-            "elections_on": "0",
-        }
-        for k, v in defaults.items():
-            con.execute("INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)", (k, v))
+    conn = db()
+    c = conn.cursor()
 
-def get_setting(key: str) -> str:
-    with db() as con:
-        row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-        return row["value"] if row else ""
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    """)
 
-def set_setting(key: str, value: str):
-    with db() as con:
-        con.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS applications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT,
+        name TEXT,
+        email TEXT,
+        reason TEXT,
+        created_at TEXT
+    )
+    """)
 
-def is_admin():
-    return session.get("admin") in ADMINS
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        body TEXT,
+        image TEXT,
+        created_at TEXT
+    )
+    """)
 
-def admin_required():
-    if not is_admin():
-        abort(403)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS votes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        voter_name TEXT,
+        party TEXT,
+        created_at TEXT,
+        UNIQUE(voter_name)
+    )
+    """)
 
-def save_file(file, folder: Path) -> str | None:
-    if not file or file.filename == "":
-        return None
-    name = secure_filename(file.filename)
-    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
-    if ext not in ALLOWED_IMAGE_EXTS and folder == UPLOAD_DIR:
-        return None
-    safe = f"{dt.datetime.now().strftime('%Y%m%d%H%M%S')}_{name}"
-    file.save(folder / safe)
-    return f"uploads/{'news' if folder == UPLOAD_DIR else 'applications'}/{safe}"
+    c.execute("INSERT OR IGNORE INTO settings VALUES ('notice', 'Welcome to the Imperial Kingdoms of Nesforvia.')")
+    c.execute("INSERT OR IGNORE INTO settings VALUES ('elections_on', 'off')")
+
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+
+def get_setting(key):
+    conn = db()
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else ""
+
+
+def set_setting(key, value):
+    conn = db()
+    conn.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("admin"):
+            return redirect(url_for("admin_login"))
+        return f(*args, **kwargs)
+    return wrapper
+
 
 @app.context_processor
 def inject_globals():
-    return {"notice": get_setting("notice"), "is_admin": is_admin(), "admin_name": ADMINS.get(session.get("admin"), {}).get("name")}
+    return {
+        "notice": get_setting("notice"),
+        "elections_on": get_setting("elections_on")
+    }
 
-@app.route('/')
+
+@app.route("/")
 def home():
-    with db() as con:
-        news = con.execute("SELECT * FROM news ORDER BY id DESC LIMIT 4").fetchall()
-    return render_template('home.html', news=news)
+    conn = db()
+    latest_news = conn.execute("SELECT * FROM news ORDER BY id DESC LIMIT 3").fetchall()
+    conn.close()
+    return render_template("index.html", latest_news=latest_news)
 
-@app.route('/information')
+
+@app.route("/information")
 def information():
-    return render_template('information.html')
+    return render_template("information.html")
 
-@app.route('/news')
-def news_list():
-    with db() as con:
-        news = con.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
-    return render_template('news.html', news=news)
 
-@app.route('/apply/<kind>', methods=['GET','POST'])
-def apply(kind):
-    if kind not in {"citizenship", "passport"}:
-        abort(404)
-    if request.method == 'POST':
-        file_path = save_file(request.files.get('file'), APP_UPLOAD_DIR)
-        with db() as con:
-            con.execute("""INSERT INTO applications(type, full_name, email, dob, discord, reason, file_path, created_at)
-                         VALUES(?,?,?,?,?,?,?,?)""",
-                        (kind, request.form['full_name'], request.form['email'], request.form.get('dob'),
-                         request.form.get('discord'), request.form['reason'], file_path, dt.datetime.now().strftime('%d %B %Y, %H:%M')))
-        flash(f"Your {kind} application has been submitted.")
-        return redirect(url_for('home'))
-    return render_template('apply.html', kind=kind)
+@app.route("/citizenship", methods=["GET", "POST"])
+def citizenship():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        reason = request.form.get("reason")
 
-@app.route('/elections', methods=['GET','POST'])
+        conn = db()
+        conn.execute(
+            "INSERT INTO applications (type, name, email, reason, created_at) VALUES (?, ?, ?, ?, ?)",
+            ("Citizenship", name, email, reason, datetime.now().strftime("%Y-%m-%d %H:%M"))
+        )
+        conn.commit()
+        conn.close()
+
+        flash("Citizenship application submitted.")
+        return redirect(url_for("citizenship"))
+
+    return render_template("citizenship.html")
+
+
+@app.route("/passport", methods=["GET", "POST"])
+def passport():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        reason = request.form.get("reason")
+
+        conn = db()
+        conn.execute(
+            "INSERT INTO applications (type, name, email, reason, created_at) VALUES (?, ?, ?, ?, ?)",
+            ("Passport", name, email, reason, datetime.now().strftime("%Y-%m-%d %H:%M"))
+        )
+        conn.commit()
+        conn.close()
+
+        flash("Passport application submitted.")
+        return redirect(url_for("passport"))
+
+    return render_template("passport.html")
+
+
+@app.route("/news")
+def news():
+    conn = db()
+    posts = conn.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
+    conn.close()
+    return render_template("news.html", posts=posts)
+
+
+@app.route("/elections", methods=["GET", "POST"])
 def elections():
-    elections_on = get_setting("elections_on") == "1"
-    if request.method == 'POST' and elections_on:
-        voter_name = request.form['voter_name'].strip()
-        party = request.form['party']
-        voter_key = voter_name.lower() + "|" + request.remote_addr
-        if party not in PARTIES:
-            abort(400)
+    elections_on = get_setting("elections_on")
+
+    if elections_on != "on":
+        return render_template("elections.html", elections_on=False)
+
+    if request.method == "POST":
+        voter_name = request.form.get("voter_name")
+        party = request.form.get("party")
+
         try:
-            with db() as con:
-                con.execute("INSERT INTO votes(voter_name, voter_key, party, created_at) VALUES(?,?,?,?)",
-                            (voter_name, voter_key, party, dt.datetime.now().strftime('%d %B %Y, %H:%M')))
-            flash("Your vote has been recorded.")
+            conn = db()
+            conn.execute(
+                "INSERT INTO votes (voter_name, party, created_at) VALUES (?, ?, ?)",
+                (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
+            )
+            conn.commit()
+            conn.close()
+            flash("Vote submitted.")
         except sqlite3.IntegrityError:
-            flash("You have already voted. One person gets one vote.")
-        return redirect(url_for('elections'))
-    with db() as con:
-        results = con.execute("SELECT party, COUNT(*) AS total FROM votes GROUP BY party").fetchall()
-    return render_template('elections.html', elections_on=elections_on, parties=PARTIES, results=results)
+            flash("You have already voted.")
 
-@app.route('/admin/login', methods=['GET','POST'])
+        return redirect(url_for("elections"))
+
+    return render_template("elections.html", elections_on=True)
+
+
+@app.route("/admin", methods=["GET", "POST"])
 def admin_login():
-    if request.method == 'POST':
-        username = request.form['username'].lower().strip()
-        password = request.form['password']
-        admin = ADMINS.get(username)
-        if admin and check_password_hash(admin['password_hash'], password):
-            session['admin'] = username
-            return redirect(url_for('admin'))
-        flash("Invalid admin login.")
-    return render_template('login.html')
+    if request.method == "POST":
+        username = request.form.get("username").lower()
+        password = request.form.get("password")
 
-@app.route('/admin/logout')
+        if username in ADMINS and ADMINS[username] == password:
+            session["admin"] = username
+            return redirect(url_for("admin_dashboard"))
+
+        flash("Invalid admin login.")
+
+    return render_template("admin_login.html")
+
+
+@app.route("/admin/dashboard")
+@admin_required
+def admin_dashboard():
+    conn = db()
+    applications = conn.execute("SELECT * FROM applications ORDER BY id DESC").fetchall()
+    posts = conn.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
+    votes = conn.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party").fetchall()
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        applications=applications,
+        posts=posts,
+        votes=votes
+    )
+
+
+@app.route("/admin/notice", methods=["POST"])
+@admin_required
+def update_notice():
+    notice = request.form.get("notice")
+    set_setting("notice", notice)
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/elections", methods=["POST"])
+@admin_required
+def toggle_elections():
+    status = request.form.get("status")
+    set_setting("elections_on", "on" if status == "on" else "off")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/news", methods=["POST"])
+@admin_required
+def add_news():
+    title = request.form.get("title")
+    body = request.form.get("body")
+    image = request.form.get("image")
+
+    conn = db()
+    conn.execute(
+        "INSERT INTO news (title, body, image, created_at) VALUES (?, ?, ?, ?)",
+        (title, body, image, datetime.now().strftime("%Y-%m-%d %H:%M"))
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/logout")
 def admin_logout():
     session.clear()
-    return redirect(url_for('home'))
+    return redirect(url_for("home"))
 
-@app.route('/admin', methods=['GET','POST'])
-def admin():
-    admin_required()
-    if request.method == 'POST':
-        set_setting("notice", request.form.get("notice", ""))
-        set_setting("elections_on", "1" if request.form.get("elections_on") else "0")
-        flash("Settings saved.")
-        return redirect(url_for('admin'))
-    with db() as con:
-        apps = con.execute("SELECT * FROM applications ORDER BY id DESC").fetchall()
-        votes = con.execute("SELECT party, COUNT(*) AS total FROM votes GROUP BY party").fetchall()
-    return render_template('admin.html', apps=apps, votes=votes, elections_on=get_setting("elections_on") == "1")
 
-@app.route('/admin/news/new', methods=['POST'])
-def admin_news_new():
-    admin_required()
-    img = save_file(request.files.get('image'), UPLOAD_DIR)
-    with db() as con:
-        con.execute("INSERT INTO news(title, body, image, author, created_at) VALUES(?,?,?,?,?)",
-                    (request.form['title'], request.form['body'], img, admin_name := ADMINS[session['admin']]['name'], dt.datetime.now().strftime('%d %B %Y')))
-    flash("News posted.")
-    return redirect(url_for('admin'))
-
-@app.route('/admin/application/<int:app_id>/<status>')
-def update_application(app_id, status):
-    admin_required()
-    if status not in {"Approved", "Declined", "Pending"}:
-        abort(400)
-    with db() as con:
-        con.execute("UPDATE applications SET status=? WHERE id=?", (status, app_id))
-    return redirect(url_for('admin'))
-
-if __name__ == '__main__':
-    init_db()
+if __name__ == "__main__":
     app.run(debug=True)
-

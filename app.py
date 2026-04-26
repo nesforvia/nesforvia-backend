@@ -135,7 +135,7 @@ def citizenship():
         flash("Citizenship application submitted.")
         return redirect(url_for("citizenship"))
 
-    return render_template("citizenship.html")
+    return render_template("citizenship.html", kind="citizenship")
 
 
 @app.route("/passport", methods=["GET", "POST"])
@@ -156,7 +156,7 @@ def passport():
         flash("Passport application submitted.")
         return redirect(url_for("passport"))
 
-    return render_template("passport.html")
+    return render_template("passport.html", kind="passport")
 
 
 @app.route("/news")
@@ -171,10 +171,7 @@ def news():
 def elections():
     elections_on = get_setting("elections_on")
 
-    if elections_on != "on":
-        return render_template("elections.html", elections_on=False)
-
-    if request.method == "POST":
+    if request.method == "POST" and elections_on == "on":
         voter_name = request.form.get("voter_name")
         party = request.form.get("party")
 
@@ -192,7 +189,15 @@ def elections():
 
         return redirect(url_for("elections"))
 
-    return render_template("elections.html", elections_on=True)
+    conn = db()
+    votes = conn.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party").fetchall()
+    conn.close()
+
+    return render_template(
+        "elections.html",
+        elections_on=elections_on,
+        votes=votes
+    )
 
 
 @app.route("/admin", methods=["GET", "POST"])

@@ -225,11 +225,12 @@ def admin_dashboard():
     conn.close()
 
     return render_template(
-        "admin_dashboard.html",
-        applications=applications,
-        posts=posts,
-        votes=votes
-    )
+    "admin_dashboard.html",
+    applications=applications,
+    posts=posts,
+    votes=votes,
+    admin_name=session.get("admin")
+)
 
 
 @app.route("/admin/notice", methods=["POST"])

@@ -135,7 +135,7 @@ def citizenship():
         flash("Citizenship application submitted.")
         return redirect(url_for("citizenship"))
 
-    return render_template("citizenship.html", kind="citizenship")
+    return render_template("apply.html", kind="citizenship")
 
 
 @app.route("/passport", methods=["GET", "POST"])
@@ -156,7 +156,7 @@ def passport():
         flash("Passport application submitted.")
         return redirect(url_for("passport"))
 
-    return render_template("passport.html", kind="passport")
+    return render_template("apply.html", kind="passport")
 
 
 @app.route("/news")

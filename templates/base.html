@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Imperial Kingdoms of Nesforvia{% endblock %}</title>
 
-    <link rel="stylesheet" href="{{ url_for('images', filename='style.css') }}">
-    <link rel="icon" href="{{ url_for('images', filename='coat-of-arms.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='coat-of-arms.png') }}">
 </head>
 
 <body>
@@ -17,7 +17,7 @@
 
     <header class="topbar">
         <a class="brand" href="{{ url_for('home') }}">
-            <img src="{{ url_for('images', filename='coat-of-arms.png') }}" alt="Nesforvia coat of arms">
+            <img src="{{ url_for('static', filename='coat-of-arms.png') }}" alt="Nesforvia coat of arms">
             <span>
                 IMPERIAL KINGDOMS<br>
                 OF NESFORVIA

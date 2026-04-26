@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Admin login</h1>
+
+<form method="post" action="{{ url_for('admin_login') }}" class="form">
+
+    <label>
+        Username
+        <input name="username" required>
+    </label>
+
+    <label>
+        Password
+        <input name="password" type="password" required>
+    </label>
+
+    <button type="submit">Login</button>
+
+</form>
+
+<p class="meta">
+    Admin accounts: max and doom. Change the default passwords before publishing.
+</p>
+
+{% endblock %}

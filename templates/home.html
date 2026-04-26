@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="hero">
+    <div>
+        <p class="eyebrow">Your Imperial Government, wherever you are.</p>
+
+        <h1>Welcome to the official website of the Imperial Kingdoms of Nesforvia</h1>
+
+        <p>Access citizenship, passport services, government news and election information.</p>
+
+        <a class="button" href="{{ url_for('citizenship') }}">Become a citizen</a>
+        <a class="button discord-btn" href="https://discord.gg/XUFp6UqzGB">JOIN THE DISCORD!</a>
+    </div>
+</section>
+
+<section class="grid">
+    <a class="card" href="{{ url_for('information') }}">
+        <h2>Information</h2>
+        <p>Read about Nesforvia, its provinces, and member states.</p>
+    </a>
+
+    <a class="card" href="{{ url_for('citizenship') }}">
+        <h2>Citizenship</h2>
+        <p>Apply to join Nesforvia.</p>
+    </a>
+
+    <a class="card" href="{{ url_for('passport') }}">
+        <h2>Passports</h2>
+        <p>Submit passport details for review.</p>
+    </a>
+
+    <a class="card" href="{{ url_for('elections') }}">
+        <h2>Elections</h2>
+        <p>Vote when elections are open.</p>
+    </a>
+</section>
+
+<h2>Latest news</h2>
+
+<section class="news-list">
+    {% for n in latest_news %}
+        <article>
+            <h3>{{ n.title }}</h3>
+            <p class="meta">{{ n.created_at }}</p>
+            <p>{{ n.body[:180] }}...</p>
+        </article>
+    {% else %}
+        <p>No news has been posted yet.</p>
+    {% endfor %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Imperial Kingdoms of Nesforvia{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('images', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('images', filename='coat-of-arms.png') }}">
+</head>
+
+<body>
+
+    <div class="notice">
+        {{ notice }}
+    </div>
+
+    <header class="topbar">
+        <a class="brand" href="{{ url_for('home') }}">
+            <img src="{{ url_for('images', filename='coat-of-arms.png') }}" alt="Nesforvia coat of arms">
+            <span>
+                IMPERIAL KINGDOMS<br>
+                OF NESFORVIA
+            </span>
+        </a>
+
+        <nav>
+            <a href="{{ url_for('home') }}">Home</a>
+            <a href="{{ url_for('information') }}">Information</a>
+            <a href="{{ url_for('news') }}">News</a>
+            <a href="{{ url_for('citizenship') }}">Citizenship</a>
+            <a href="{{ url_for('passport') }}">Passports</a>
+            <a href="{{ url_for('elections') }}">Elections</a>
+            <a href="{{ url_for('admin_login') }}">Admin</a>
+        </nav>
+    </header>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <b>Imperial Kingdoms of Nesforvia</b><br>
+        Official government information and services online.
+    </footer>
+
+</body>
+</html>

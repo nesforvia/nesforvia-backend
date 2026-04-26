@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Admin panel</h1>
+
+<p>
+    Logged in as {{ session.get('admin') }}.
+    <a href="{{ url_for('admin_logout') }}">Logout</a>
+</p>
+
+<form method="post" action="{{ url_for('update_notice') }}" class="form">
+    <label>
+        Public notice alert
+        <textarea name="notice">{{ notice }}</textarea>
+    </label>
+
+    <label class="check">
+        <input type="checkbox" name="status" value="on"
+        {% if elections_on == "on" %}checked{% endif %}>
+        Elections open
+    </label>
+
+    <button>Save settings</button>
+</form>
+
+<h2>Post news</h2>
+
+<form method="post" action="{{ url_for('add_news') }}" class="form">
+    <label>
+        Title
+        <input name="title" required>
+    </label>
+
+    <label>
+        Body
+        <textarea name="body" required></textarea>
+    </label>
+
+    <label>
+        Optional image (URL)
+        <input type="text" name="image">
+    </label>
+
+    <button>Post news</button>
+</form>
+
+<h2>Applications</h2>
+
+<table>
+    <tr>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Action</th>
+    </tr>
+
+    {% for a in applications %}
+    <tr>
+        <td>{{ a.type }}</td>
+        <td>{{ a.name }}</td>
+        <td>{{ a.email }}</td>
+        <td>—</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>Election results</h2>
+
+{% for v in votes %}
+    <p>{{ v.party }}: {{ v.count }}</p>
+{% else %}
+    <p>No votes yet.</p>
+{% endfor %}
+
+{% endblock %}

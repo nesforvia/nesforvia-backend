@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Apply for {{ kind|title }}</h1>
+
+<form method="post" action="{{ url_for(kind) }}" class="form">
+
+    <label>
+        Full name
+        <input name="name" required>
+    </label>
+
+    <label>
+        Email
+        <input name="email" type="email" required>
+    </label>
+
+    <label>
+        Why are you applying?
+        <textarea name="reason" required></textarea>
+    </label>
+
+    <button>Submit application</button>
+
+</form>
+
+{% endblock %}

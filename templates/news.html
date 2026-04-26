@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}
+News
+{% endblock %}
+
+{% block content %}
+
+<h1>News</h1>
+
+<section class="news-list">
+
+    {% for n in posts %}
+        <article>
+
+            {% if n.image %}
+                <img class="news-img" src="{{ n.image }}" alt="News image">
+            {% endif %}
+
+            <h2>{{ n.title }}</h2>
+
+            <p class="meta">
+                {{ n.created_at }}
+            </p>
+
+            <p>{{ n.body }}</p>
+
+        </article>
+
+    {% else %}
+        <p>No news yet.</p>
+    {% endfor %}
+
+</section>
+
+{% endblock %}

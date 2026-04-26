@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Elections</h1>
+
+{% if elections_on == "on" %}
+
+    <p>The election panel is open. You may vote for one party only.</p>
+
+    <form method="post" action="{{ url_for('elections') }}" class="form">
+
+        <label>
+            Your full name
+            <input name="voter_name" required>
+        </label>
+
+        <label>
+            Party
+            <select name="party" required>
+                <option value="Green Party">Green Party</option>
+                <option value="Conservative Party">Conservative Party</option>
+                <option value="Social Democratic Party">Social Democratic Party</option>
+            </select>
+        </label>
+
+        <button>Cast vote</button>
+
+    </form>
+
+{% else %}
+
+    <div class="card">
+        <h2>Elections are not open right now.</h2>
+        <p>Come back when the Imperial Government opens the election panel.</p>
+
+        {% if session.get('admin') %}
+            <p>
+                <a href="{{ url_for('admin_dashboard') }}">
+                    Open admin panel to turn elections on.
+                </a>
+            </p>
+        {% endif %}
+    </div>
+
+{% endif %}
+
+
+{% if session.get('admin') %}
+
+    <h2>Current results</h2>
+
+    {% for r in votes %}
+        <p>{{ r.party }}: {{ r.count }}</p>
+    {% else %}
+        <p>No votes yet.</p>
+    {% endfor %}
+
+{% endif %}
+
+{% endblock %}

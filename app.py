@@ -212,7 +212,7 @@ def admin_login():
 
         flash("Invalid admin login.")
 
-    return render_template("admin_login.html")
+    return render_template("login.html")
 
 
 @app.route("/admin/dashboard")
@@ -225,7 +225,7 @@ def admin_dashboard():
     conn.close()
 
     return render_template(
-    "admin_dashboard.html",
+    "admin.html",
     applications=applications,
     posts=posts,
     votes=votes,

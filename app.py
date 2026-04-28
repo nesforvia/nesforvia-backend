@@ -38,10 +38,33 @@ def init_db():
         type TEXT,
         name TEXT,
         email TEXT,
+        discord TEXT,
+        dob TEXT,
+        region TEXT,
         reason TEXT,
+        contribution TEXT,
+        agreement TEXT,
+        citizenship_status TEXT,
+        passport_reason TEXT,
+        status TEXT DEFAULT 'Pending',
         created_at TEXT
     )
     """)
+
+    for column in [
+        "discord TEXT",
+        "dob TEXT",
+        "region TEXT",
+        "contribution TEXT",
+        "agreement TEXT",
+        "citizenship_status TEXT",
+        "passport_reason TEXT",
+        "status TEXT DEFAULT 'Pending'"
+    ]:
+        try:
+            c.execute(f"ALTER TABLE applications ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS news (

@@ -4,24 +4,85 @@
 
 <h1>Apply for {{ kind|title }}</h1>
 
+<p class="meta">
+    Complete the form below. False or joke applications may be declined.
+</p>
+
 <form method="post" action="{{ url_for(kind) }}" class="form">
 
+    <h2>Personal details</h2>
+
     <label>
-        Full name
+        Full legal / preferred name
         <input name="name" required>
     </label>
 
     <label>
-        Email
+        Email address
         <input name="email" type="email" required>
     </label>
+
+    <label>
+        Discord username
+        <input name="discord" placeholder="example: max_d_evans">
+    </label>
+
+    <label>
+        Date of birth
+        <input name="dob" type="date">
+    </label>
+
+    <label>
+        Country / region
+        <input name="region" placeholder="Example: England, UK">
+    </label>
+
+    <h2>Application details</h2>
 
     <label>
         Why are you applying?
         <textarea name="reason" required></textarea>
     </label>
 
-    <button>Submit application</button>
+    {% if kind == "citizenship" %}
+        <label>
+            What can you contribute to Nesforvia?
+            <textarea name="contribution" placeholder="Community work, activity, ideas, design, diplomacy, etc."></textarea>
+        </label>
+
+        <label>
+            Do you agree to follow Nesforvian laws and government decisions?
+            <select name="agreement" required>
+                <option value="">Select one</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+            </select>
+        </label>
+    {% endif %}
+
+    {% if kind == "passport" %}
+        <label>
+            Citizenship status
+            <select name="citizenship_status" required>
+                <option value="">Select one</option>
+                <option value="Current Nesforvian citizen">Current Nesforvian citizen</option>
+                <option value="Citizenship application pending">Citizenship application pending</option>
+                <option value="Not yet a citizen">Not yet a citizen</option>
+            </select>
+        </label>
+
+        <label>
+            Passport reason
+            <select name="passport_reason" required>
+                <option value="">Select one</option>
+                <option value="First passport">First passport</option>
+                <option value="Replacement passport">Replacement passport</option>
+                <option value="Updated details">Updated details</option>
+            </select>
+        </label>
+    {% endif %}
+
+    <button type="submit">Submit application</button>
 
 </form>
 

@@ -212,7 +212,7 @@ def passport():
 def update_application_status(app_id, status):
     if status not in ["Approved", "Declined", "Pending"]:
         flash("Invalid status.")
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin_dashboard"))
 
     conn = db()
     conn.execute(
@@ -223,7 +223,7 @@ def update_application_status(app_id, status):
     conn.close()
 
     flash(f"Application marked as {status}.")
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_dashboard"))
 
 @app.route("/news")
 def news():

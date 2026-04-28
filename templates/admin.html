@@ -52,6 +52,9 @@
         <th>Type</th>
         <th>Name</th>
         <th>Email</th>
+        <th>Discord</th>
+        <th>Region</th>
+        <th>Status</th>
         <th>Action</th>
     </tr>
 
@@ -60,7 +63,16 @@
         <td>{{ a.type }}</td>
         <td>{{ a.name }}</td>
         <td>{{ a.email }}</td>
-        <td>—</td>
+        <td>{{ a.discord or "—" }}</td>
+        <td>{{ a.region or "—" }}</td>
+        <td><b>{{ a.status }}</b></td>
+        <td>
+            <a href="{{ url_for('update_application_status', app_id=a.id, status='Approved') }}">Approve</a>
+            |
+            <a href="{{ url_for('update_application_status', app_id=a.id, status='Declined') }}">Decline</a>
+            |
+            <a href="{{ url_for('update_application_status', app_id=a.id, status='Pending') }}">Reset</a>
+        </td>
     </tr>
     {% endfor %}
 </table>

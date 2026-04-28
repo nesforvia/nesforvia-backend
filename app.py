@@ -143,15 +143,28 @@ def information():
 @app.route("/citizenship", methods=["GET", "POST"])
 def citizenship():
     if request.method == "POST":
-        name = request.form.get("name")
-        email = request.form.get("email")
-        reason = request.form.get("reason")
-
         conn = db()
-        conn.execute(
-            "INSERT INTO applications (type, name, email, reason, created_at) VALUES (?, ?, ?, ?, ?)",
-            ("Citizenship", name, email, reason, datetime.now().strftime("%Y-%m-%d %H:%M"))
-        )
+        conn.execute("""
+            INSERT INTO applications (
+                type, name, email, discord, dob, region, reason,
+                contribution, agreement, citizenship_status, passport_reason,
+                status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "Citizenship",
+            request.form.get("name"),
+            request.form.get("email"),
+            request.form.get("discord"),
+            request.form.get("dob"),
+            request.form.get("region"),
+            request.form.get("reason"),
+            request.form.get("contribution"),
+            request.form.get("agreement"),
+            None,
+            None,
+            "Pending",
+            datetime.now().strftime("%Y-%m-%d %H:%M")
+        ))
         conn.commit()
         conn.close()
 
@@ -164,15 +177,28 @@ def citizenship():
 @app.route("/passport", methods=["GET", "POST"])
 def passport():
     if request.method == "POST":
-        name = request.form.get("name")
-        email = request.form.get("email")
-        reason = request.form.get("reason")
-
         conn = db()
-        conn.execute(
-            "INSERT INTO applications (type, name, email, reason, created_at) VALUES (?, ?, ?, ?, ?)",
-            ("Passport", name, email, reason, datetime.now().strftime("%Y-%m-%d %H:%M"))
-        )
+        conn.execute("""
+            INSERT INTO applications (
+                type, name, email, discord, dob, region, reason,
+                contribution, agreement, citizenship_status, passport_reason,
+                status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "Passport",
+            request.form.get("name"),
+            request.form.get("email"),
+            request.form.get("discord"),
+            request.form.get("dob"),
+            request.form.get("region"),
+            request.form.get("reason"),
+            None,
+            None,
+            request.form.get("citizenship_status"),
+            request.form.get("passport_reason"),
+            "Pending",
+            datetime.now().strftime("%Y-%m-%d %H:%M")
+        ))
         conn.commit()
         conn.close()
 
@@ -181,6 +207,23 @@ def passport():
 
     return render_template("apply.html", kind="passport")
 
+@app.route("/admin/application/<int:app_id>/<status>")
+@admin_required
+def update_application_status(app_id, status):
+    if status not in ["Approved", "Declined", "Pending"]:
+        flash("Invalid status.")
+        return redirect(url_for("admin"))
+
+    conn = db()
+    conn.execute(
+        "UPDATE applications SET status=? WHERE id=?",
+        (status, app_id)
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f"Application marked as {status}.")
+    return redirect(url_for("admin"))
 
 @app.route("/news")
 def news():

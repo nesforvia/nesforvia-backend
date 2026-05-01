@@ -75,7 +75,7 @@ main {
     min-height: 380px;
     background:
         linear-gradient(115deg, rgba(255,255,255,0.93), rgba(217,239,177,0.72)),
-        url("static/flag.png") center / cover;
+        url("flag.png") center / cover;
     border: 1px solid var(--line);
     padding: 55px;
     display: flex;

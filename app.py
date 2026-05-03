@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from functools import wraps
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
@@ -7,7 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
 
-DB = "/tmp/nesforvia.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 ADMINS = {
     "max": os.environ.get("ADMIN_MAX_PASSWORD", "Biscuit123!"),
@@ -16,9 +17,10 @@ ADMINS = {
 
 
 def db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
 
 
 def init_db():
@@ -34,7 +36,7 @@ def init_db():
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS applications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         type TEXT,
         name TEXT,
         email TEXT,
@@ -63,12 +65,12 @@ def init_db():
     ]:
         try:
             c.execute(f"ALTER TABLE applications ADD COLUMN {column}")
-        except sqlite3.OperationalError:
+        except Exception:
             pass
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         title TEXT,
         body TEXT,
         image TEXT,
@@ -78,7 +80,7 @@ def init_db():
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS votes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         voter_name TEXT,
         party TEXT,
         created_at TEXT,
@@ -98,14 +100,14 @@ init_db()
 
 def get_setting(key):
     conn = db()
-    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    row = conn.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
     conn.close()
     return row["value"] if row else ""
 
 
 def set_setting(key, value):
     conn = db()
-    conn.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.execute("REPLACE INTO settings (key, value) VALUES (%s, %s)", (key, value))
     conn.commit()
     conn.close()
 
@@ -149,7 +151,7 @@ def citizenship():
                 type, name, email, discord, dob, region, reason,
                 contribution, agreement, citizenship_status, passport_reason,
                 status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             "Citizenship",
             request.form.get("name"),
@@ -183,7 +185,7 @@ def passport():
                 type, name, email, discord, dob, region, reason,
                 contribution, agreement, citizenship_status, passport_reason,
                 status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             "Passport",
             request.form.get("name"),
@@ -216,7 +218,7 @@ def update_application_status(app_id, status):
 
     conn = db()
     conn.execute(
-        "UPDATE applications SET status=? WHERE id=?",
+        "UPDATE applications SET status=%s WHERE id=%s",
         (status, app_id)
     )
     conn.commit()
@@ -244,7 +246,7 @@ def elections():
         try:
             conn = db()
             conn.execute(
-                "INSERT INTO votes (voter_name, party, created_at) VALUES (?, ?, ?)",
+                "INSERT INTO votes (voter_name, party, created_at) VALUES (%s, %s, %s)",
                 (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
             )
             conn.commit()
@@ -324,7 +326,7 @@ def add_news():
 
     conn = db()
     conn.execute(
-        "INSERT INTO news (title, body, image, created_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO news (title, body, image, created_at) VALUES (%s, %s, %s, %s)",
         (title, body, image, datetime.now().strftime("%Y-%m-%d %H:%M"))
     )
     conn.commit()

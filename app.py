@@ -252,9 +252,9 @@ def elections():
             conn.commit()
             conn.close()
             flash("Vote submitted.")
-        except sqlite3.IntegrityError:
-            flash("You have already voted.")
 
+except Exception:
+    flash("You have already voted.")
         return redirect(url_for("elections"))
 
     conn = db()

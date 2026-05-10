@@ -25,7 +25,11 @@ def db():
 
 def init_db():
     conn = db()
-    c = conn.cursor()
+    cur = conn.cursor()
+    cur.execute(...)
+    conn.commit()
+    cur.close()
+    conn.close()
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS settings (

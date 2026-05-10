@@ -250,26 +250,30 @@ def elections():
         try:
             conn = db()
             cur = conn.cursor()
-        
+
             cur.execute(
                 "INSERT INTO votes (voter_name, party, created_at) VALUES (%s, %s, %s)",
                 (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
             )
-        
+
             conn.commit()
-        
             cur.close()
             conn.close()
-        
+
             flash("Vote submitted.")
 
-        except Exception as e:
+        except Exception:
             flash("You have already voted.")
-        
+
         return redirect(url_for("elections"))
 
     conn = db()
-    votes = conn.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party").fetchall()
+    cur = conn.cursor()
+
+    cur.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party")
+    votes = cur.fetchall()
+
+    cur.close()
     conn.close()
 
     return render_template(
@@ -277,7 +281,6 @@ def elections():
         elections_on=elections_on,
         votes=votes
     )
-
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin_login():

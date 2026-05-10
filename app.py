@@ -247,19 +247,26 @@ def elections():
         voter_name = request.form.get("voter_name")
         party = request.form.get("party")
 
-        try:
-            conn = db()
-            conn.execute(
-                "INSERT INTO votes (voter_name, party, created_at) VALUES (%s, %s, %s)",
-                (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
-            )
-            conn.commit()
-            conn.close()
-            flash("Vote submitted.")
+            try:
+                conn = db()
+                cur = conn.cursor()
+        
+                cur.execute(
+                    "INSERT INTO votes (voter_name, party, created_at) VALUES (%s, %s, %s)",
+                    (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
+                )
+        
+                conn.commit()
+        
+                cur.close()
+                conn.close()
+        
+                flash("Vote submitted.")
 
-except Exception:
-    flash("You have already voted.")
-        return redirect(url_for("elections"))
+            except Exception as e:
+                flash("You have already voted.")
+        
+            return redirect(url_for("elections"))
 
     conn = db()
     votes = conn.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party").fetchall()

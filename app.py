@@ -23,18 +23,44 @@ def db():
     )
 
 
-def init_db():
+def fetchone(query, params=()):
     conn = db()
     cur = conn.cursor()
+    cur.execute(query, params)
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
 
-    cur.execute("""
+
+def fetchall(query, params=()):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def execute(query, params=()):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(query, params)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def init_db():
+    execute("""
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
     )
     """)
 
-    cur.execute("""
+    execute("""
     CREATE TABLE IF NOT EXISTS applications (
         id SERIAL PRIMARY KEY,
         type TEXT,
@@ -53,7 +79,7 @@ def init_db():
     )
     """)
 
-    cur.execute("""
+    execute("""
     CREATE TABLE IF NOT EXISTS news (
         id SERIAL PRIMARY KEY,
         title TEXT,
@@ -63,7 +89,7 @@ def init_db():
     )
     """)
 
-    cur.execute("""
+    execute("""
     CREATE TABLE IF NOT EXISTS votes (
         id SERIAL PRIMARY KEY,
         voter_name TEXT UNIQUE,
@@ -72,36 +98,35 @@ def init_db():
     )
     """)
 
-    cur.execute(
+    execute(
         "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
         ("notice", "Welcome to the Imperial Kingdoms of Nesforvia.")
     )
 
-    cur.execute(
+    execute(
         "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
         ("elections_on", "off")
     )
-
-    conn.commit()
-    cur.close()
-    conn.close()
 
 
 init_db()
 
 
 def get_setting(key):
-    conn = db()
-    row = conn.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
-    conn.close()
+    row = fetchone("SELECT value FROM settings WHERE key=%s", (key,))
     return row["value"] if row else ""
 
 
 def set_setting(key, value):
-    conn = db()
-    conn.execute("REPLACE INTO settings (key, value) VALUES (%s, %s)", (key, value))
-    conn.commit()
-    conn.close()
+    execute(
+        """
+        INSERT INTO settings (key, value)
+        VALUES (%s, %s)
+        ON CONFLICT (key)
+        DO UPDATE SET value = EXCLUDED.value
+        """,
+        (key, value)
+    )
 
 
 def admin_required(f):
@@ -123,9 +148,7 @@ def inject_globals():
 
 @app.route("/")
 def home():
-    conn = db()
-    latest_news = conn.execute("SELECT * FROM news ORDER BY id DESC LIMIT 3").fetchall()
-    conn.close()
+    latest_news = fetchall("SELECT * FROM news ORDER BY id DESC LIMIT 3")
     return render_template("index.html", latest_news=latest_news)
 
 
@@ -137,8 +160,7 @@ def information():
 @app.route("/citizenship", methods=["GET", "POST"])
 def citizenship():
     if request.method == "POST":
-        conn = db()
-        conn.execute("""
+        execute("""
             INSERT INTO applications (
                 type, name, email, discord, dob, region, reason,
                 contribution, agreement, citizenship_status, passport_reason,
@@ -159,8 +181,6 @@ def citizenship():
             "Pending",
             datetime.now().strftime("%Y-%m-%d %H:%M")
         ))
-        conn.commit()
-        conn.close()
 
         flash("Citizenship application submitted.")
         return redirect(url_for("citizenship"))
@@ -171,8 +191,7 @@ def citizenship():
 @app.route("/passport", methods=["GET", "POST"])
 def passport():
     if request.method == "POST":
-        conn = db()
-        conn.execute("""
+        execute("""
             INSERT INTO applications (
                 type, name, email, discord, dob, region, reason,
                 contribution, agreement, citizenship_status, passport_reason,
@@ -193,13 +212,12 @@ def passport():
             "Pending",
             datetime.now().strftime("%Y-%m-%d %H:%M")
         ))
-        conn.commit()
-        conn.close()
 
         flash("Passport application submitted.")
         return redirect(url_for("passport"))
 
     return render_template("apply.html", kind="passport")
+
 
 @app.route("/admin/application/<int:app_id>/<status>")
 @admin_required
@@ -208,22 +226,18 @@ def update_application_status(app_id, status):
         flash("Invalid status.")
         return redirect(url_for("admin_dashboard"))
 
-    conn = db()
-    conn.execute(
+    execute(
         "UPDATE applications SET status=%s WHERE id=%s",
         (status, app_id)
     )
-    conn.commit()
-    conn.close()
 
     flash(f"Application marked as {status}.")
     return redirect(url_for("admin_dashboard"))
 
+
 @app.route("/news")
 def news():
-    conn = db()
-    posts = conn.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
-    conn.close()
+    posts = fetchall("SELECT * FROM news ORDER BY id DESC")
     return render_template("news.html", posts=posts)
 
 
@@ -236,45 +250,25 @@ def elections():
         party = request.form.get("party")
 
         try:
-            conn = db()
-            cur = conn.cursor()
-
-            cur.execute(
+            execute(
                 "INSERT INTO votes (voter_name, party, created_at) VALUES (%s, %s, %s)",
                 (voter_name, party, datetime.now().strftime("%Y-%m-%d %H:%M"))
             )
-
-            conn.commit()
-            cur.close()
-            conn.close()
-
             flash("Vote submitted.")
-
         except Exception:
             flash("You have already voted.")
 
         return redirect(url_for("elections"))
 
-    conn = db()
-    cur = conn.cursor()
+    votes = fetchall("SELECT party, COUNT(*) as count FROM votes GROUP BY party")
+    return render_template("elections.html", elections_on=elections_on, votes=votes)
 
-    cur.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party")
-    votes = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return render_template(
-        "elections.html",
-        elections_on=elections_on,
-        votes=votes
-    )
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
-        username = request.form.get("username").lower()
-        password = request.form.get("password")
+        username = request.form.get("username", "").lower()
+        password = request.form.get("password", "")
 
         if username in ADMINS and ADMINS[username] == password:
             session["admin"] = username
@@ -288,19 +282,17 @@ def admin_login():
 @app.route("/admin/dashboard")
 @admin_required
 def admin_dashboard():
-    conn = db()
-    applications = conn.execute("SELECT * FROM applications ORDER BY id DESC").fetchall()
-    posts = conn.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
-    votes = conn.execute("SELECT party, COUNT(*) as count FROM votes GROUP BY party").fetchall()
-    conn.close()
+    applications = fetchall("SELECT * FROM applications ORDER BY id DESC")
+    posts = fetchall("SELECT * FROM news ORDER BY id DESC")
+    votes = fetchall("SELECT party, COUNT(*) as count FROM votes GROUP BY party")
 
     return render_template(
-    "admin.html",
-    applications=applications,
-    posts=posts,
-    votes=votes,
-    admin_name=session.get("admin")
-)
+        "admin.html",
+        applications=applications,
+        posts=posts,
+        votes=votes,
+        admin_name=session.get("admin")
+    )
 
 
 @app.route("/admin/notice", methods=["POST"])
@@ -326,13 +318,10 @@ def add_news():
     body = request.form.get("body")
     image = request.form.get("image")
 
-    conn = db()
-    conn.execute(
+    execute(
         "INSERT INTO news (title, body, image, created_at) VALUES (%s, %s, %s, %s)",
         (title, body, image, datetime.now().strftime("%Y-%m-%d %H:%M"))
     )
-    conn.commit()
-    conn.close()
 
     return redirect(url_for("admin_dashboard"))
 

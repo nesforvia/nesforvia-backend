@@ -26,19 +26,15 @@ def db():
 def init_db():
     conn = db()
     cur = conn.cursor()
-    cur.execute(...)
-    conn.commit()
-    cur.close()
-    conn.close()
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
     )
     """)
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS applications (
         id SERIAL PRIMARY KEY,
         type TEXT,
@@ -57,22 +53,7 @@ def init_db():
     )
     """)
 
-    for column in [
-        "discord TEXT",
-        "dob TEXT",
-        "region TEXT",
-        "contribution TEXT",
-        "agreement TEXT",
-        "citizenship_status TEXT",
-        "passport_reason TEXT",
-        "status TEXT DEFAULT 'Pending'"
-    ]:
-        try:
-            c.execute(f"ALTER TABLE applications ADD COLUMN {column}")
-        except Exception:
-            pass
-
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS news (
         id SERIAL PRIMARY KEY,
         title TEXT,
@@ -82,20 +63,27 @@ def init_db():
     )
     """)
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS votes (
         id SERIAL PRIMARY KEY,
-        voter_name TEXT,
+        voter_name TEXT UNIQUE,
         party TEXT,
-        created_at TEXT,
-        UNIQUE(voter_name)
+        created_at TEXT
     )
     """)
 
-    c.execute("INSERT OR IGNORE INTO settings VALUES ('notice', 'Welcome to the Imperial Kingdoms of Nesforvia.')")
-    c.execute("INSERT OR IGNORE INTO settings VALUES ('elections_on', 'off')")
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
+        ("notice", "Welcome to the Imperial Kingdoms of Nesforvia.")
+    )
+
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
+        ("elections_on", "off")
+    )
 
     conn.commit()
+    cur.close()
     conn.close()
 
 
